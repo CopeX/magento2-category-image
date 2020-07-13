@@ -1,6 +1,8 @@
 <?php
+
 namespace SR\CategoryImage\Plugin\Catalog\Model\Category;
 
+use Magento\Catalog\Model\Category\FileInfo;
 use Magento\Framework\Registry;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Exception\LocalizedException;
@@ -58,6 +60,12 @@ class DataProviderPlugin
      */
     private $requestScopeFieldName = 'store';
 
+
+    /**
+     * @var FileInfo
+     */
+    private $fileInfo;
+
     /**
      * Constructor
      *
@@ -65,17 +73,21 @@ class DataProviderPlugin
      * @param RequestInterface $request
      * @param CategoryFactory $categoryFactory
      * @param CategoryHelper $categoryHelper
+     * @param FileInfo $fileInfo
      */
     public function __construct(
         Registry $registry,
         RequestInterface $request,
         CategoryFactory $categoryFactory,
-        CategoryHelper $categoryHelper
-    ) {
+        CategoryHelper $categoryHelper,
+        FileInfo $fileInfo
+    )
+    {
         $this->registry = $registry;
         $this->request = $request;
         $this->categoryFactory = $categoryFactory;
         $this->categoryHelper = $categoryHelper;
+        $this->fileInfo = $fileInfo;
     }
 
     /**
@@ -95,8 +107,23 @@ class DataProviderPlugin
             foreach ($this->getAdditionalImageTypes() as $imageType) {
                 if (isset($categoryData[$imageType])) {
                     unset($categoryData[$imageType]);
-                    $categoryData[$imageType][0]['name'] = $category->getData($imageType);
-                    $categoryData[$imageType][0]['url'] = $this->categoryHelper->getImageUrl($category->getData($imageType));
+
+                    $filename = $category->getData($imageType);
+
+                    if ($this->fileInfo->isExist($filename)) {
+                        $stat = $this->fileInfo->getStat($filename);
+                        $mime = $this->fileInfo->getMimeType($filename);
+
+                        $categoryData[$imageType][0]['name'] = basename($filename);
+                        $categoryData[$imageType][0]['size'] = isset($stat) ? $stat['size'] : 0;
+                        $categoryData[$imageType][0]['type'] = $mime;
+
+                        if ($this->fileInfo->isBeginsWithMediaDirectoryPath($filename)) {
+                            $categoryData[$imageType][0]['url'] = $filename;
+                        } else {
+                            $categoryData[$imageType][0]['url'] = $this->categoryHelper->getImageUrl($category->getData($imageType));
+                        }
+                    }
                 }
             }
 
